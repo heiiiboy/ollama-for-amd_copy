@@ -1,0 +1,48 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install LLVM MinGW
+        shell: powershell
+        run: |
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip"
+          $zip = "$env:RUNNER_TEMP\llvm-mingw.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "C:\Program Files\"
+          $path = (Resolve-Path "C:\Program Files\llvm-mingw-*-ucrt-x86_64").Path
+          echo "$path\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build Windows EXE
+        shell: powershell
+        run: |
+          ./scripts/build_windows ollama
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-windows-amd64
+          path: |
+            dist/windows-amd64/ollama.exe
